@@ -36,7 +36,8 @@
     "preview": "vite preview",
     "test": "vitest --run",
     "test:watch": "vitest",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest --coverage --run",
+    "test:ci": "vitest --coverage --run --reporter=verbose",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint src --ext js,jsx --fix",
     "format": "prettier --write src/**/*.{js,jsx,css,md}"

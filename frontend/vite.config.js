@@ -68,13 +68,24 @@ export default defineConfig(({ command, mode }) => {
       environment: 'jsdom',
       setupFiles: './src/test/setup.js',
       coverage: {
-        reporter: ['text', 'json', 'html'],
+        provider: 'v8',
+        reporter: ['text', 'json', 'html', 'lcov'],
         exclude: [
           'node_modules/',
           'src/test/',
           '**/*.test.{js,jsx}',
           '**/*.spec.{js,jsx}',
+          'dist/',
+          'coverage/',
         ],
+        thresholds: {
+          global: {
+            branches: 80,
+            functions: 80,
+            lines: 80,
+            statements: 80
+          }
+        }
       },
     },
   };

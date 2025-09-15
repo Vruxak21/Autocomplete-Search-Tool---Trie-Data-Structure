@@ -1,0 +1,16 @@
+{
+  "name": "autocomplete-search-load-tests",
+  "version": "1.0.0",
+  "description": "Load tests for autocomplete search tool",
+  "private": true,
+  "scripts": {
+    "test": "k6 run search-load-test.js",
+    "test:performance": "k6 run performance-test.js",
+    "test:stress": "k6 run stress-test.js",
+    "test:spike": "k6 run spike-test.js",
+    "test:concurrent": "k6 run concurrent-users-test.js"
+  },
+  "devDependencies": {
+    "k6": "^0.47.0"
+  }
+}
