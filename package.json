@@ -1,0 +1,54 @@
+{
+  "name": "autocomplete-search-tool",
+  "version": "1.0.0",
+  "description": "Full-stack autocomplete search tool with Trie data structure",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:backend && npm run install:frontend",
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:prod": "NODE_ENV=production npm run build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "format": "npm run format:backend && npm run format:frontend",
+    "format:backend": "cd backend && npm run format",
+    "format:frontend": "cd frontend && npm run format",
+    "seed": "cd backend && npm run seed",
+    "copy-data": "cp *.csv *.tsv *.xlsx data/ 2>/dev/null || echo 'No data files to copy'",
+    "setup": "npm run install:all && npm run copy-data",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:prod": "docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d",
+    "docker:prod:down": "docker-compose -f docker-compose.yml -f docker-compose.prod.yml down",
+    "deploy": "bash scripts/deploy.sh",
+    "deploy:staging": "bash scripts/deploy.sh staging",
+    "deploy:prod": "bash scripts/deploy.sh production",
+    "deploy:prod:full": "bash scripts/production-deploy.sh",
+    "deploy:prod:dry": "bash scripts/production-deploy.sh --dry-run",
+    "validate:prod": "node scripts/validate-production.js",
+    "build:prod:analyze": "cd frontend && ANALYZE=true npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
