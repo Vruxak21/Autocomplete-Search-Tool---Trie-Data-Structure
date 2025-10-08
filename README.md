@@ -284,6 +284,31 @@ const DATASET_CONFIG = {
 
 ### Advanced Features
 
+#### Tree View Visualization
+The application now supports hierarchical tree visualization of search results:
+
+1. **Switch Views**: Use the toggle button to switch between list and tree views
+2. **Navigate Tree**: Use arrow keys to navigate through the hierarchical structure
+   - ↓/↑ arrows: Move between visible nodes
+   - →/← arrows: Expand/collapse groups or navigate to parent/child
+   - Enter: Select word or toggle expansion
+   - Escape: Clear selection
+3. **Visual Indicators**: 
+   - Prefix groups show common text patterns
+   - Word frequency displayed with visual prominence
+   - Typo corrections marked with special indicators
+4. **Accessibility**: Full screen reader support with ARIA attributes
+
+```javascript
+// Enable tree view programmatically
+const treeView = new TreeView({
+  treeNodes: suggestions,
+  query: 'search term',
+  onSelect: (node) => console.log('Selected:', node.word),
+  onToggleExpand: (nodeId, isExpanded) => console.log('Toggled:', nodeId)
+});
+```
+
 #### Typo Tolerance
 ```javascript
 // Enable typo tolerance in API requests

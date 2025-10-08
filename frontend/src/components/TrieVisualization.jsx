@@ -12,21 +12,30 @@ const TrieVisualization = ({ currentQuery = '' }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [prefixFilter, setPrefixFilter] = useState('');
   const svgRef = useRef();
   const containerRef = useRef();
   const { handleError } = useErrorHandler();
 
-  // Fetch Trie structure data
-  const fetchTrieStructure = useCallback(async (depth = 4, prefix = '') => {
+  // Fetch Trie structure data with performance limits
+  const fetchTrieStructure = useCallback(async (depth = 3, prefix = '', maxNodes = 100) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.getTrieStructure({ depth, prefix });
+      
+      // Add performance limits to prevent hanging
+      const response = await api.getTrieStructure({ 
+        depth: Math.min(depth, 4), // Limit max depth to 4
+        prefix, 
+        maxNodes: Math.min(maxNodes, 200), // Limit max nodes to 200
+        timeout: 5000 // 5 second timeout
+      });
+      
       setTrieData(response);
     } catch (err) {
       const errorDetails = handleError(err, { 
         showToast: false,
-        customMessage: 'Failed to load Trie structure'
+        customMessage: 'Failed to load Trie structure. Try reducing the depth or using a prefix filter.'
       });
       setError(errorDetails.message);
     } finally {
@@ -62,9 +71,10 @@ const TrieVisualization = ({ currentQuery = '' }) => {
     }
   }, []);
 
-  // Initialize data on component mount
+  // Initialize data on component mount with smaller initial load
   useEffect(() => {
-    fetchTrieStructure();
+    // Start with very limited data to prevent hanging
+    fetchTrieStructure(2, '', 50); // Depth 2, max 50 nodes
     fetchComplexityInfo();
   }, [fetchTrieStructure, fetchComplexityInfo]);
 
@@ -102,6 +112,8 @@ const TrieVisualization = ({ currentQuery = '' }) => {
 
     const { nodes, edges } = trieData.structure;
     
+    console.log('Rendering with nodes:', nodes?.length, 'edges:', edges?.length);
+    
     if (!nodes || nodes.length === 0) {
       // Show empty state
       svg.append('text')
@@ -112,12 +124,23 @@ const TrieVisualization = ({ currentQuery = '' }) => {
         .text('No Trie data available');
       return;
     }
+    
+    if (!edges || edges.length === 0) {
+      // Show nodes without edges
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height / 2)
+        .attr('text-anchor', 'middle')
+        .attr('class', 'text-gray-500')
+        .text(`Found ${nodes.length} nodes but no connections. Check data structure.`);
+      return;
+    }
 
     // Create hierarchical layout
-    const root = d3.hierarchy({
-      id: nodes[0].id,
-      children: buildHierarchy(nodes, edges)
-    });
+    const hierarchyData = buildHierarchy(nodes, edges);
+    console.log('Hierarchy data:', hierarchyData);
+    
+    const root = d3.hierarchy(hierarchyData);
 
     const treeLayout = d3.tree()
       .size([width - 100, height - 100])
@@ -227,9 +250,11 @@ const TrieVisualization = ({ currentQuery = '' }) => {
 
   // Build hierarchy from flat node/edge structure
   const buildHierarchy = (nodes, edges) => {
+    console.log('Building hierarchy with nodes:', nodes.length, 'edges:', edges.length);
+    
     const nodeMap = new Map(nodes.map(node => [node.id, { ...node, children: [] }]));
-    const rootChildren = [];
 
+    // Build parent-child relationships
     edges.forEach(edge => {
       const parent = nodeMap.get(edge.from);
       const child = nodeMap.get(edge.to);
@@ -238,9 +263,14 @@ const TrieVisualization = ({ currentQuery = '' }) => {
       }
     });
 
-    // Find root node (should be first node)
-    const rootNode = nodes[0];
-    return rootNode ? nodeMap.get(rootNode.id)?.children || [] : [];
+    // Find and return the root node with its complete hierarchy
+    const rootNode = nodes.find(n => n.character === 'ROOT' || n.id === 0);
+    const rootHierarchy = rootNode ? nodeMap.get(rootNode.id) : null;
+    
+    console.log('Root hierarchy:', rootHierarchy);
+    console.log('Root children count:', rootHierarchy?.children?.length || 0);
+    
+    return rootHierarchy || { id: 0, character: 'ROOT', children: [] };
   };
 
   if (loading) {
@@ -312,34 +342,81 @@ const TrieVisualization = ({ currentQuery = '' }) => {
 
       {/* Visualization Controls */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-4">
+          {/* Prefix Filter */}
           <div className="flex items-center space-x-4">
+            <label className="text-sm font-medium text-gray-700">
+              Filter by prefix:
+            </label>
+            <input
+              type="text"
+              value={prefixFilter}
+              onChange={(e) => setPrefixFilter(e.target.value)}
+              placeholder="e.g., 'app' to see only words starting with 'app'"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
             <button
-              onClick={() => fetchTrieStructure(3)}
-              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md"
+              onClick={() => fetchTrieStructure(3, prefixFilter, 100)}
+              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
             >
-              Depth 3
-            </button>
-            <button
-              onClick={() => fetchTrieStructure(4)}
-              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md"
-            >
-              Depth 4
-            </button>
-            <button
-              onClick={() => fetchTrieStructure(5)}
-              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md"
-            >
-              Depth 5
+              Apply Filter
             </button>
           </div>
-          <div className="text-sm text-gray-600">
-            {currentQuery && (
-              <span>Highlighting path for: <strong>"{currentQuery}"</strong></span>
-            )}
+          
+          {/* Size Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => fetchTrieStructure(2, prefixFilter, 50)}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md"
+              >
+                Small (Depth 2)
+              </button>
+              <button
+                onClick={() => fetchTrieStructure(3, prefixFilter, 100)}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md"
+              >
+                Medium (Depth 3)
+              </button>
+              <button
+                onClick={() => fetchTrieStructure(4, prefixFilter, 150)}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md"
+              >
+                Large (Depth 4)
+              </button>
+              <div className="text-xs text-gray-500">
+                ⚠️ Start with Small to avoid performance issues
+              </div>
+            </div>
+            <div className="text-sm text-gray-600">
+              {currentQuery && (
+                <span>Highlighting path for: <strong>"{currentQuery}"</strong></span>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Performance Warning */}
+      {!prefixFilter && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">
+                Performance Tip
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>For large datasets, use a prefix filter (like "app" or "new") to focus on specific parts of the trie. This prevents browser hanging and improves visualization clarity.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Visualization Container */}
       <div ref={containerRef} className="bg-white border border-gray-200 rounded-lg p-4">
@@ -347,6 +424,7 @@ const TrieVisualization = ({ currentQuery = '' }) => {
           <h3 className="text-lg font-semibold text-gray-900">Trie Structure Visualization</h3>
           <p className="text-sm text-gray-600 mt-1">
             Click on nodes to explore. Blue path shows current search query.
+            {prefixFilter && <span className="font-medium"> Filtered by: "{prefixFilter}"</span>}
           </p>
         </div>
         

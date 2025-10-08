@@ -101,6 +101,18 @@ async function startApplication() {
     console.log('[SERVER] Running application bootstrap...');
     const bootstrap = new ApplicationBootstrap();
     const bootstrapResult = await bootstrap.bootstrap();
+    
+    // Auto-seed in production if no data exists
+    if (appConfig.NODE_ENV === 'production' && bootstrapResult.trie && bootstrapResult.trie.getWordCount() === 0) {
+      console.log('[SERVER] No data found in production, running auto-seed...');
+      try {
+        const seedScript = require('../scripts/seed');
+        await seedScript.runSeed({ datasets: 'sample', force: false });
+        console.log('[SERVER] Auto-seed completed successfully');
+      } catch (seedError) {
+        console.warn('[SERVER] Auto-seed failed, continuing with empty trie:', seedError.message);
+      }
+    }
 
     if (!bootstrapResult.success) {
       throw new Error(`Bootstrap failed: ${bootstrapResult.error}`);

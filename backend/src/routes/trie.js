@@ -51,8 +51,18 @@ router.get('/structure', [
       });
     }
 
+    // Debug logging
+    console.log('Trie structure request:', { prefix, depth });
+    console.log('Trie stats:', trie.getStats());
+    
     // Generate Trie structure data for visualization
     const structureData = generateTrieStructure(trie, prefix, depth);
+    
+    console.log('Generated structure:', {
+      nodes: structureData.nodes.length,
+      edges: structureData.edges.length,
+      totalWords: structureData.totalWords
+    });
     
     res.json({
       structure: structureData,
@@ -224,10 +234,15 @@ function generateTrieStructure(trie, prefix = '', maxDepth = 5) {
   let startNode = trie.root;
   let currentPrefix = '';
   
+  console.log('Starting traversal with prefix:', prefix);
+  console.log('Root node children:', startNode.children ? startNode.children.size : 'no children property');
+  
   if (prefix) {
     for (const char of prefix.toLowerCase()) {
+      console.log('Looking for char:', char, 'in node with children:', startNode.children ? startNode.children.size : 0);
       if (!startNode.hasChild(char)) {
         // Prefix doesn't exist in Trie
+        console.log(`Prefix "${prefix}" not found in Trie at character "${char}"`);
         return {
           ...result,
           error: `Prefix "${prefix}" not found in Trie`
@@ -240,7 +255,10 @@ function generateTrieStructure(trie, prefix = '', maxDepth = 5) {
 
   // Traverse Trie structure using DFS
   function traverse(node, currentPrefix, depth, parentId = null) {
-    if (depth > maxDepth) return;
+    if (depth > maxDepth) {
+      console.log('Stopping traversal at depth:', depth, 'maxDepth:', maxDepth);
+      return;
+    }
 
     const currentNodeId = nodeId++;
     nodeMap.set(node, currentNodeId);
@@ -256,7 +274,7 @@ function generateTrieStructure(trie, prefix = '', maxDepth = 5) {
       frequency: node.frequency || 0,
       word: node.word || null,
       depth,
-      childCount: node.children.size
+      childCount: node.children ? node.children.size : 0
     };
 
     if (node.isEndOfWord) {
@@ -264,6 +282,7 @@ function generateTrieStructure(trie, prefix = '', maxDepth = 5) {
     }
 
     result.nodes.push(nodeData);
+    console.log('Added node:', nodeData.character, 'prefix:', nodeData.prefix, 'children:', nodeData.childCount);
 
     // Create edge to parent
     if (parentId !== null) {
@@ -272,11 +291,17 @@ function generateTrieStructure(trie, prefix = '', maxDepth = 5) {
         to: currentNodeId,
         character: nodeData.character
       });
+      console.log('Added edge from', parentId, 'to', currentNodeId);
     }
 
     // Traverse children
-    for (const [char, childNode] of node.children) {
-      traverse(childNode, currentPrefix + char, depth + 1, currentNodeId);
+    if (node.children) {
+      for (const [char, childNode] of node.children) {
+        console.log('Traversing child:', char);
+        traverse(childNode, currentPrefix + char, depth + 1, currentNodeId);
+      }
+    } else {
+      console.log('Node has no children property');
     }
   }
 

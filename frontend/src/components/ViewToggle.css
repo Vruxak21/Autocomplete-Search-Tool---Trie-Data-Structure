@@ -1,0 +1,101 @@
+/**
+ * ViewToggle component styles
+ * Provides smooth transition animations between view modes
+ */
+
+.view-toggle-container {
+  transition: all 0.2s ease-in-out;
+}
+
+.view-toggle-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.view-toggle-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.view-toggle-button:hover::before {
+  left: 100%;
+}
+
+.view-toggle-button:active {
+  transform: scale(0.98);
+}
+
+.view-toggle-button:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* Smooth mode transition animations */
+.view-content-enter {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.view-content-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+
+.view-content-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.view-content-exit-active {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 200ms ease-in, transform 200ms ease-in;
+}
+
+/* Icon animations */
+.view-toggle-icon {
+  transition: transform 0.2s ease-in-out;
+}
+
+.view-toggle-button:hover .view-toggle-icon {
+  transform: scale(1.1);
+}
+
+.view-toggle-button:active .view-toggle-icon {
+  transform: scale(0.95);
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .view-toggle-button,
+  .view-toggle-button::before,
+  .view-toggle-icon,
+  .view-content-enter-active,
+  .view-content-exit-active {
+    transition: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .view-toggle-button {
+    border: 2px solid currentColor;
+  }
+  
+  .view-toggle-button:focus {
+    outline: 3px solid;
+    outline-offset: 2px;
+  }
+}

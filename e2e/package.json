@@ -9,6 +9,10 @@
     "test:debug": "playwright test --debug",
     "test:ui": "playwright test --ui",
     "test:a11y": "playwright test --grep=\"accessibility\"",
+    "test:comprehensive": "playwright test tree-view-comprehensive.spec.js",
+    "test:performance": "playwright test performance-e2e.spec.js",
+    "test:integration": "playwright test tree-visualization-integration.spec.js",
+    "test:all": "playwright test --reporter=html",
     "report": "playwright show-report",
     "install:browsers": "playwright install"
   },

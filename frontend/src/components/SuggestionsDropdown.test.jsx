@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SuggestionsDropdown from './SuggestionsDropdown';
+import { VIEW_MODES } from '../types/tree';
 
 describe('SuggestionsDropdown Component', () => {
   const mockSuggestions = [
@@ -393,6 +394,323 @@ describe('SuggestionsDropdown Component', () => {
         'transition-colors',
         'duration-150'
       );
+    });
+  });
+
+  describe('Multi-View Functionality', () => {
+    const mockOnViewModeChange = vi.fn();
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('renders in list view by default', () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true} 
+        />
+      );
+      
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+      expect(screen.getByTestId('list-view')).toBeInTheDocument();
+    });
+
+    it('shows view toggle when showViewToggle is true', () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          showViewToggle={true}
+        />
+      );
+      
+      expect(screen.getByTestId('list-view-button')).toBeInTheDocument();
+      expect(screen.getByTestId('tree-view-button')).toBeInTheDocument();
+    });
+
+    it('hides view toggle when showViewToggle is false', () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          showViewToggle={false}
+        />
+      );
+      
+      expect(screen.queryByTestId('list-view-button')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('tree-view-button')).not.toBeInTheDocument();
+    });
+
+    it('renders in tree view when viewMode is set to tree', async () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+        />
+      );
+      
+      // Wait for tree building to complete
+      await waitFor(() => {
+        expect(screen.getByRole('tree')).toBeInTheDocument();
+      });
+    });
+
+    it('calls onViewModeChange when view toggle is clicked', async () => {
+      const user = userEvent.setup();
+      
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.LIST}
+          onViewModeChange={mockOnViewModeChange}
+          showViewToggle={true}
+        />
+      );
+      
+      await user.click(screen.getByTestId('tree-view-button'));
+      
+      expect(mockOnViewModeChange).toHaveBeenCalledWith(
+        VIEW_MODES.TREE,
+        expect.any(Object)
+      );
+    });
+
+    it('shows loading state when building tree', () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+        />
+      );
+      
+      expect(screen.getByText('Building tree view...')).toBeInTheDocument();
+    });
+
+    it('handles tree building errors gracefully', async () => {
+      // Mock TreeBuilder to throw an error
+      const mockSuggestions = [
+        { word: 'test', frequency: 1 }
+      ];
+      
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+          treeConfig={{ buildTimeout: 1 }} // Very short timeout to trigger error
+        />
+      );
+      
+      await waitFor(() => {
+        expect(screen.getByText('Failed to build tree view')).toBeInTheDocument();
+      });
+      
+      expect(screen.getByText('Switch to List View')).toBeInTheDocument();
+    });
+
+    it('falls back to list view when tree building fails', async () => {
+      const user = userEvent.setup();
+      
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+          treeConfig={{ buildTimeout: 1 }}
+        />
+      );
+      
+      await waitFor(() => {
+        expect(screen.getByText('Switch to List View')).toBeInTheDocument();
+      });
+      
+      await user.click(screen.getByText('Switch to List View'));
+      
+      expect(screen.getByTestId('list-view')).toBeInTheDocument();
+    });
+
+    it('handles selection in tree view', async () => {
+      const user = userEvent.setup();
+      
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+          onSelect={mockOnSelect}
+        />
+      );
+      
+      await waitFor(() => {
+        expect(screen.getByRole('tree')).toBeInTheDocument();
+      });
+      
+      // Find and click a tree node (word node)
+      const treeNodes = screen.getAllByRole('treeitem');
+      if (treeNodes.length > 0) {
+        await user.click(treeNodes[0]);
+        expect(mockOnSelect).toHaveBeenCalled();
+      }
+    });
+
+    it('preserves custom className in both views', () => {
+      const { rerender } = render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.LIST}
+          className="custom-class"
+        />
+      );
+      
+      const container = screen.getByTestId('list-view').closest('.custom-class');
+      expect(container).toBeInTheDocument();
+      
+      rerender(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+          className="custom-class"
+        />
+      );
+      
+      // Tree view container should have custom class
+      const treeContainer = screen.getByRole('tree').closest('.custom-class');
+      expect(treeContainer).toBeInTheDocument();
+    });
+
+    it('handles empty suggestions in tree view', () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={[]} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+        />
+      );
+      
+      // Should not render anything for empty suggestions
+      expect(screen.queryByRole('tree')).not.toBeInTheDocument();
+    });
+
+    it('disables view toggle during tree building', () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+          showViewToggle={true}
+        />
+      );
+      
+      const treeButton = screen.getByTestId('tree-view-button');
+      const listButton = screen.getByTestId('list-view-button');
+      
+      expect(treeButton).toBeDisabled();
+      expect(listButton).toBeDisabled();
+    });
+
+    it('applies correct ARIA attributes for tree view', async () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+        />
+      );
+      
+      await waitFor(() => {
+        const container = screen.getByRole('tree');
+        expect(container).toHaveAttribute('aria-label', 'Search suggestions tree');
+        expect(container).toHaveAttribute('id', 'suggestions-content');
+      });
+    });
+
+    it('applies correct ARIA attributes for list view', () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.LIST}
+        />
+      );
+      
+      const listView = screen.getByTestId('list-view');
+      expect(listView).toHaveAttribute('aria-label', 'Search suggestions list');
+      
+      const container = screen.getByText('Tokyo').closest('#suggestions-content');
+      expect(container).toBeInTheDocument();
+    });
+
+    it('handles tree configuration options', async () => {
+      const customConfig = {
+        maxDepth: 5,
+        minGroupSize: 3,
+        virtualScrollThreshold: 25,
+        buildTimeout: 500
+      };
+      
+      render(
+        <SuggestionsDropdown 
+          suggestions={mockSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+          treeConfig={customConfig}
+        />
+      );
+      
+      // Should not throw error with custom config
+      await waitFor(() => {
+        expect(screen.getByRole('tree')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Typo Correction Support', () => {
+    const typoSuggestions = [
+      { 
+        word: 'Tokyo', 
+        frequency: 100, 
+        type: 'typo_correction',
+        originalQuery: 'Tokio',
+        editDistance: 1,
+        similarity: 0.9
+      },
+      { word: 'Toronto', frequency: 80, type: 'exact_match' }
+    ];
+
+    it('displays typo correction indicators in list view', () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={typoSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.LIST}
+        />
+      );
+      
+      expect(screen.getByText('Did you mean?')).toBeInTheDocument();
+      expect(screen.getByText('Original: "Tokio" • Edit distance: 1 • Similarity: 90%')).toBeInTheDocument();
+    });
+
+    it('handles typo corrections in tree view', async () => {
+      render(
+        <SuggestionsDropdown 
+          suggestions={typoSuggestions} 
+          isVisible={true}
+          viewMode={VIEW_MODES.TREE}
+        />
+      );
+      
+      await waitFor(() => {
+        expect(screen.getByRole('tree')).toBeInTheDocument();
+      });
+      
+      // Tree should be built successfully with typo corrections
+      expect(screen.queryByText('Failed to build tree view')).not.toBeInTheDocument();
     });
   });
 });
